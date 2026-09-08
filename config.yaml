@@ -1,0 +1,75 @@
+# ---------------------------------------------------------------------------
+# Proof Non-Triviality Benchmark — run configuration
+# ---------------------------------------------------------------------------
+
+# Paths -- mathlib_dir is already bundled (data/mathlib/Mathlib/, the real
+# Mathlib4 library -- see README's "Mathlib library version" section) and
+# normally doesn't need to change. theorem_dir is a FOLDER of .lean sources
+# (a single .lean file also works) -- point it at your proof project, e.g.
+# the specific subdirectory of a formal-math-style repo such as its `zeta23/`
+# folder -- drop it in as-is, no restructuring needed.
+mathlib_dir: "data/mathlib"
+theorem_dir: "proofs/zeta23"
+output_dir: "outputs"
+
+# Exact Lean name of the target theorem T to score. This must match a
+# declaration actually found inside theorem_dir -- Lean names can contain
+# unicode subscripts that are easy to mistype, so if you're not sure, run:
+#   python main.py find --dir proofs/zeta23 --query thm
+# first to see exactly what the parser found. Only T's own dependency closure
+# (Definition A.3) within theorem_dir is scored as s1..sn -- other, unrelated
+# theorems living in the same folder are correctly ignored.
+target_theorem_name: "Zeta23.thmB_std_of_traces"
+
+# --- Definition 1.1 (Search Budget) -----------------------------------------
+B: 50                       # max search-tree depth allowed when recovering w(si,B)
+
+# --- Definition 2.5 (theta-invention fraction) ------------------------------
+theta: 0.2                 # recoverability threshold in (alpha_min, 1)
+
+# --- alpha_min override -----------------------------------------------------
+# alpha_min := 1 / (1 + |Cand_B|) by definition. Leave null to compute it from
+# cand_pool_size below; set a number to override directly (e.g. if you already
+# know |Cand_B| from your own prover setup).
+alpha_min_override: null
+cand_pool_size: 500         # |Cand_B|: size of the curated candidate pool per step
+
+# --- Definition A.5 / search prover ------------------------------------------
+prover:
+  mode: "manual"            # "manual" | "lean_llm_search"
+  # Used when mode == "manual": JSON file mapping step name -> w(si,B).
+  # Any step NOT listed here falls back to the Definition A.5 failure convention,
+  # w(si,B) := w(si), i.e. treated as maximally non-recoverable (alpha_abl -> alpha_min).
+  manual_overrides_file: "manual_overrides.json"
+  # Used when mode == "lean_llm_search" (optional, needs a local `lake`/`lean` on PATH):
+  # NOTE: this needs an actual buildable Lake project (lakefile + lean-toolchain +
+  # resolved dependencies), not just a folder of .lean sources. The bundled
+  # data/mathlib/Mathlib/ is source-only (no lakefile), so point this at your proof
+  # project's own Lake project directory instead (a formal-math-style repo typically
+  # has its own lakefile.lean/lean-toolchain that depends on Mathlib as a package).
+  lean_llm_search:
+    lake_project_dir: "proofs/zeta23"  # dir containing lakefile / lean-toolchain
+    llm_api_base: "https://api.anthropic.com/v1/messages"
+    llm_api_key_env: "ANTHROPIC_API_KEY"
+    llm_model: "claude-sonnet-4-6"
+    max_attempts_per_step: 10           # tactic-proof candidates tried before giving up
+    timeout_seconds_per_attempt: 100000
+
+# --- Feature vector phi(si) / embeddings (Definition 2.2) ------------------
+embedding:
+  api_base: "http://localhost:11434/v1/embeddings"   # Ollama's OpenAI-compatible endpoint
+  api_key_env: "EMBEDDING_API_KEY"                    # name of env var holding the key
+  model: "nomic-embed-text"
+  # How phi(si) is built:
+  #   "embedding_only"  -> just the text embedding of si's statement+proof
+  #   "structural_only" -> bag-of-dependencies count vector (no API calls needed)
+  #   "concat"          -> [structural counts | text embedding], then PCA
+  feature_mode: "structural_only"
+  feature_dim: 16          # final dimensionality of phi(si) after PCA (keep << cluster size)
+  structural_top_k: 64     # size of the raw bag-of-dependencies vector before concat/PCA
+
+# --- Clustering L into c = 1..C (Definition 2.2) -----------------------------
+clustering:
+  by: "module_prefix"      # cluster by Mathlib module path prefix, e.g. "Mathlib.Analysis"
+  prefix_depth: 2           # how many dotted segments define a cluster
+  min_cluster_size: 20      # clusters smaller than this are merged into "Mathlib.Misc"

@@ -1,0 +1,34 @@
+# Demo config: runs against the tiny fixture library in data/mathlib and the
+# example proofs/theorem_T.lean, using structural-only features (no embedding
+# API calls) and manual w(si,B) overrides (no Lean toolchain needed). This is
+# meant to prove the pipeline runs end-to-end -- for a real run, copy this to
+# config.yaml, point mathlib_dir at a real mathlib4 clone, and set B / theta /
+# embedding.* / prover.mode for your actual setup.
+
+mathlib_dir: "data/mathlib"
+theorem_dir: "proofs/theorem_T"
+target_theorem_name: "target_theorem_example"
+output_dir: "outputs"
+
+B: 4
+theta: 0.3
+
+alpha_min_override: null
+cand_pool_size: 5
+
+prover:
+  mode: "manual"
+  manual_overrides_file: "manual_overrides.demo.json"
+
+embedding:
+  api_base: "https://api.openai.com/v1/embeddings"
+  api_key_env: "EMBEDDING_API_KEY"
+  model: "text-embedding-3-small"
+  feature_mode: "structural_only"
+  feature_dim: 4
+  structural_top_k: 8
+
+clustering:
+  by: "module_prefix"
+  prefix_depth: 2
+  min_cluster_size: 1

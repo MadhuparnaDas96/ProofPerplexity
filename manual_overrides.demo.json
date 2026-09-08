@@ -1,0 +1,5 @@
+{
+  "_comment": "w(si,B) for the two steps in proofs/theorem_T, as if a budget-4 search recovered aux_bound_one almost fully but struggled on aux_bound_two.",
+  "aux_bound_one": 1,
+  "aux_bound_two": 4
+}
